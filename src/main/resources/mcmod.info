@@ -1,10 +1,10 @@
-{
-  [
+[ 
+  {
     "modid": "blockhologram",
     "name": "Block Hologram",
     "version": "${version}",
     "authorList": [ "ffba04" ],
     "url": "https://github.com/ffba04/TheModdingTrials",
     "description": "Block holograms and new block highlight"
-  ]
-}
+  }
+]
