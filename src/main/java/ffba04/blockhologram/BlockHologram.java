@@ -113,10 +113,6 @@ public class BlockHologram {
 		ItemStack mainHand = player.getHeldItemMainhand();
 		ItemStack offHand = player.getHeldItemOffhand();
 
-		if (mainHand != null) {
-			// LOGGER.info(mainHand.getItem().getClass());
-		}
-
 		EnumHand hand = null;
 
 		if (mainHand != null && offHand != null) {
