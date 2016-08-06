@@ -23,6 +23,7 @@ plugins {
 version = "v1.0"
 group= "ffba04" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = "blockhologram"
+sourceCompatibility = targetCompatibility = "1.8"
 
 minecraft {
     version = "1.10.2-12.18.1.2011"

@@ -19,8 +19,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.client.model.pipeline.LightUtil;
 
 public class RenderUtil {
-	public static void renderGhostModel(IBlockState state, IBakedModel model, World world, int alpha, boolean tint,
-			EnumFacing... facings) {
+	public static void renderGhostModel(IBlockState state, IBakedModel model, World world, int alpha, boolean tint) {
 		GlStateManager.bindTexture(Minecraft.getMinecraft().getTextureMapBlocks().getGlTextureId());
 		GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
@@ -28,31 +27,25 @@ public class RenderUtil {
 		GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 		GlStateManager.colorMask(false, false, false, false);
 
-		renderModel(state, model, world, BlockPos.ORIGIN, alpha, tint, facings);
+		renderModel(state, model, world, BlockPos.ORIGIN, alpha, tint);
 		GlStateManager.colorMask(true, true, true, true);
 		GlStateManager.depthFunc(GL11.GL_LEQUAL);
-		renderModel(state, model, world, BlockPos.ORIGIN, alpha, tint, facings);
+		renderModel(state, model, world, BlockPos.ORIGIN, alpha, tint);
 
 		GlStateManager.disableBlend();
 	}
 
 	public static void renderModel(IBlockState state, IBakedModel model, World world, BlockPos blockPos, int alpha,
-			boolean tint, EnumFacing... facings) {
+			boolean tint) {
 		Tessellator tessellator = Tessellator.getInstance();
 		VertexBuffer vertexBuffer = tessellator.getBuffer();
 		vertexBuffer.begin(GL11.GL_QUADS, DefaultVertexFormats.ITEM);
 
-		if (facings.length == 0) {
-			for (EnumFacing value : EnumFacing.values()) {
-				renderQuads(state, vertexBuffer, model.getQuads(state, value, 0), world, blockPos, alpha, tint);
-			}
-
-			renderQuads(state, vertexBuffer, model.getQuads(state, null, 0), world, blockPos, alpha, tint);
-		} else {
-			for (EnumFacing value : facings) {
-				renderQuads(state, vertexBuffer, model.getQuads(state, value, 0), world, blockPos, alpha, tint);
-			}
+		for (EnumFacing value : EnumFacing.values()) {
+			renderQuads(state, vertexBuffer, model.getQuads(state, value, 0), world, blockPos, alpha, tint);
 		}
+
+		renderQuads(state, vertexBuffer, model.getQuads(state, null, 0), world, blockPos, alpha, tint);
 
 		tessellator.draw();
 	}
