@@ -1,25 +1,38 @@
 package ffba04.blockhologram.dummy;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Stream;
+
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSetMultimap;
+
+import ffba04.blockhologram.Hologram;
+import ffba04.blockhologram.Hologram.Part;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockContainer;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.block.model.IBakedModel;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.Packet;
 import net.minecraft.profiler.Profiler;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
@@ -31,7 +44,6 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeProvider;
 import net.minecraft.world.border.WorldBorder;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.storage.ISaveHandler;
 import net.minecraft.world.storage.MapStorage;
 import net.minecraft.world.storage.WorldInfo;
@@ -41,24 +53,113 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 public class DummyWorld extends World {
-	
-	private World world;
-	private DummyChunk chunk;
 
-	public DummyWorld(World world) {
+	private World world;
+	private DummyPlayer dummyPlayer;
+	private int copyRadius;
+
+	public DummyWorld(World world, int copyRadius) {
 		super(null, world.getWorldInfo(), new WorldProviderSurface(), new Profiler(), false);
 
 		this.world = world;
-		chunk = new DummyChunk(this);
+		this.dummyPlayer = new DummyPlayer(this);
+		this.copyRadius = copyRadius;
+		
 		chunkProvider = createChunkProvider();
 		provider.registerWorld(this);
 		provider.setDimension("dummy".hashCode());
 		perWorldStorage = new MapStorage((ISaveHandler) null);
 	}
 
+	@SideOnly(Side.CLIENT)
+	public void copyWorldToDummy(World world, Hologram hologram) {
+		getChunkFromChunkCoords(0, 0).getTileEntityMap().clear();
+		BlockPos center = hologram.pos;
+
+		getPositionsAround(center).forEach(pos -> {
+			IBlockState state = world.getBlockState(pos);
+			setBlockState(pos, state, 0);
+
+			if (state.getBlock().hasTileEntity(state)) {
+				TileEntity entity = world.getTileEntity(pos);
+				TileEntity dummyEntity = getTileEntity(pos);
+
+				if (entity != null && dummyEntity != null) {
+					dummyEntity.readFromNBT(entity.writeToNBT(new NBTTagCompound()));
+				}
+			}
+		});
+	}
+
+	public EnumActionResult useBlockItem(EntityPlayer player, EnumHand hand, Hologram hologram) {
+		ItemStack stack = player.getHeldItem(hand).copy();
+		Item item = stack.getItem();
+
+		dummyPlayer.setLocationAndAngles(player.posX, player.posY, player.posZ, player.rotationYaw,
+				player.rotationPitch);
+		dummyPlayer.setHeldItem(hand, stack);
+
+		EnumActionResult result = EnumActionResult.PASS;
+		BlockPos pos = hologram.pos;
+		EnumFacing facing = hologram.facing;
+		float hitX = hologram.hitX;
+		float hitY = hologram.hitY;
+		float hitZ = hologram.hitZ;
+
+		result = item.onItemUseFirst(stack, dummyPlayer, this, pos, facing, hitX, hitY, hitZ, hand);
+
+		if (result != EnumActionResult.PASS) {
+			return result;
+		}
+
+		result = item.onItemUse(stack, dummyPlayer, this, pos, hand, facing, hitX, hitY, hitZ);
+
+		if (result != EnumActionResult.PASS) {
+			return result;
+		}
+
+		result = item.onItemRightClick(stack, this, dummyPlayer, hand).getType();
+
+		return result;
+	}
+
+	@SideOnly(Side.CLIENT)
+	public void updateBlockModels(Hologram hologram) {
+		final Minecraft mc = Minecraft.getMinecraft();
+		BlockPos center = hologram.pos;
+
+		getPositionsAround(center).forEach(pos -> {
+			IBlockState current = world.getBlockState(pos).getActualState(world, pos);
+			IBlockState dummy = getBlockState(pos).getActualState(this, pos);
+
+			if (current != dummy) {
+				IBakedModel model = mc.getBlockRendererDispatcher().getModelForState(dummy);
+				TileEntity entity = getTileEntity(pos);
+				dummy = getBlockState(pos).getBlock().getExtendedState(dummy, world, pos);
+
+				hologram.parts.add(
+						new Part(this, pos, dummy, model, dummy.getBlock() instanceof BlockContainer ? entity : null));
+			}
+		});
+	}
+
+	private Stream<BlockPos> getPositionsAround(BlockPos center) {
+		List<BlockPos> positions = new ArrayList<>();
+
+		for (int y = center.getY() - copyRadius; y <= center.getY() + copyRadius; y++) {
+			for (int z = center.getZ() - copyRadius; z <= center.getZ() + copyRadius; z++) {
+				for (int x = center.getX() - copyRadius; x <= center.getX() + copyRadius; x++) {
+					positions.add(new BlockPos(x, y, z));
+				}
+			}
+		}
+
+		return positions.stream();
+	}
+
 	@Override
-	protected IChunkProvider createChunkProvider() {
-		return new DummyChunkProvider(this);
+	protected DummyChunk createChunkProvider() {
+		return new DummyChunk(this);
 	}
 
 	@Override
@@ -78,12 +179,12 @@ public class DummyWorld extends World {
 
 	@Override
 	public Chunk getChunkFromBlockCoords(BlockPos pos) {
-		return chunk;
+		return chunkProvider.getLoadedChunk(0, 0);
 	}
 
 	@Override
 	public Chunk getChunkFromChunkCoords(int chunkX, int chunkZ) {
-		return chunk;
+		return chunkProvider.getLoadedChunk(0, 0);
 	}
 
 	@Override
@@ -301,18 +402,18 @@ public class DummyWorld extends World {
 	@Override
 	public void setTileEntity(BlockPos pos, TileEntity tileEntity) {
 		if (tileEntity != null) {
-			chunk.addTileEntity(pos, tileEntity);
+			chunkProvider.getLoadedChunk(0, 0).addTileEntity(pos, tileEntity);
 		}
 	}
 
 	@Override
 	public void removeTileEntity(BlockPos pos) {
-		chunk.removeTileEntity(pos);
+		chunkProvider.getLoadedChunk(0, 0).removeTileEntity(pos);
 	}
 
 	@Override
 	public TileEntity getTileEntity(BlockPos pos) {
-		return chunk.getTileEntity(pos, Chunk.EnumCreateEntityType.IMMEDIATE);
+		return chunkProvider.getLoadedChunk(0, 0).getTileEntity(pos, Chunk.EnumCreateEntityType.IMMEDIATE);
 	}
 
 	@Override
@@ -787,5 +888,5 @@ public class DummyWorld extends World {
 	protected boolean isChunkLoaded(int x, int z, boolean allowEmpty) {
 		return true;
 	}
-	
+
 }

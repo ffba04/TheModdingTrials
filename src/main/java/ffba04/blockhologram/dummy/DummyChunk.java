@@ -23,7 +23,7 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-public class DummyChunk extends Chunk {
+public class DummyChunk extends Chunk implements IChunkProvider {
 	
 	private World world;
 	private IBlockState[] blockStorage = new IBlockState[4096];
@@ -31,8 +31,29 @@ public class DummyChunk extends Chunk {
 	public DummyChunk(World world) {
 		super(world, 0, 0);
 		this.world = world;
+		
 		setChunkLoaded(true);
 		Arrays.fill(blockStorage, 0, blockStorage.length, Blocks.AIR.getDefaultState());
+	}
+	
+	@Override
+	public Chunk getLoadedChunk(int x, int z) {
+		return this;
+	}
+
+	@Override
+	public Chunk provideChunk(int x, int z) {
+		return this;
+	}
+
+	@Override
+	public boolean unloadQueuedChunks() {
+		return true;
+	}
+
+	@Override
+	public String makeString() {
+		return "dummy";
 	}
 
 	@Override

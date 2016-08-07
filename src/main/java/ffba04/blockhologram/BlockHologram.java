@@ -2,17 +2,13 @@ package ffba04.blockhologram;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import ffba04.blockhologram.Hologram.Part;
-import ffba04.blockhologram.dummy.DummyPlayer;
 import ffba04.blockhologram.dummy.DummyWorld;
 import ffba04.blockhologram.util.RenderUtil;
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockContainer;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockRendererDispatcher;
@@ -22,9 +18,7 @@ import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumBlockRenderType;
@@ -53,10 +47,8 @@ public class BlockHologram {
 
 	private Minecraft mc = Minecraft.getMinecraft();
 	private DummyWorld dummyWorld = null;
-	private DummyPlayer dummyPlayer = null;
 
 	private Hologram currentHologram = null;
-	private int radius = 5;
 
 	private List<Block> exclusions = new ArrayList<>();
 
@@ -71,14 +63,12 @@ public class BlockHologram {
 
 	@SubscribeEvent
 	public void worldLoad(WorldEvent.Load e) {
-		dummyWorld = new DummyWorld(e.getWorld());
-		dummyPlayer = new DummyPlayer(dummyWorld);
+		dummyWorld = new DummyWorld(e.getWorld(), 4);
 	}
 
 	@SubscribeEvent
 	public void worldUnload(WorldEvent.Unload e) {
 		dummyWorld = null;
-		dummyPlayer = null;
 		currentHologram = null;
 	}
 
@@ -107,99 +97,16 @@ public class BlockHologram {
 			ItemStack mainHand = player.getHeldItemMainhand();
 			ItemStack offHand = player.getHeldItemOffhand();
 
-			dummyWorld.getChunkFromChunkCoords(0, 0).getTileEntityMap().clear();
-			copyWorldToDummy(world);
+			dummyWorld.copyWorldToDummy(world, hologram);
 			EnumActionResult result = null;
-			if ((mainHand == null || (result = useBlockItem(player, EnumHand.MAIN_HAND)) == EnumActionResult.PASS)
+			if ((mainHand == null || (result = dummyWorld.useBlockItem(player, EnumHand.MAIN_HAND, hologram)) == EnumActionResult.PASS)
 					&& offHand != null) {
-				result = useBlockItem(player, EnumHand.OFF_HAND);
+				result = dummyWorld.useBlockItem(player, EnumHand.OFF_HAND, hologram);
 			}
 			if (result == EnumActionResult.SUCCESS) {
-				updateBlockModels(world);
+				dummyWorld.updateBlockModels(hologram);
 			}
 		}
-	}
-
-	private void copyWorldToDummy(World world) {
-		BlockPos center = currentHologram.pos;
-
-		getPositionsAround(center).forEach(pos -> {
-			IBlockState state = world.getBlockState(pos);
-			dummyWorld.setBlockState(pos, state, 0);
-
-			if (state.getBlock().hasTileEntity(state)) {
-				TileEntity entity = world.getTileEntity(pos);
-				TileEntity dummyEntity = dummyWorld.getTileEntity(pos);
-
-				if (entity != null && dummyEntity != null) {
-					dummyEntity.readFromNBT(entity.writeToNBT(new NBTTagCompound()));
-				}
-			}
-		});
-	}
-
-	private EnumActionResult useBlockItem(EntityPlayer player, EnumHand hand) {
-		ItemStack stack = player.getHeldItem(hand).copy();
-		Item item = stack.getItem();
-
-		dummyPlayer.setLocationAndAngles(player.posX, player.posY, player.posZ, player.rotationYaw,
-				player.rotationPitch);
-		dummyPlayer.setHeldItem(hand, stack);
-
-		EnumActionResult result = EnumActionResult.PASS;
-		BlockPos pos = currentHologram.pos;
-		EnumFacing facing = currentHologram.facing;
-		float hitX = currentHologram.hitX;
-		float hitY = currentHologram.hitY;
-		float hitZ = currentHologram.hitZ;
-
-		result = item.onItemUseFirst(stack, dummyPlayer, dummyWorld, pos, facing, hitX, hitY, hitZ, hand);
-
-		if (result != EnumActionResult.PASS) {
-			return result;
-		}
-
-		result = item.onItemUse(stack, dummyPlayer, dummyWorld, pos, hand, facing, hitX, hitY, hitZ);
-
-		if (result != EnumActionResult.PASS) {
-			return result;
-		}
-
-		result = item.onItemRightClick(stack, dummyWorld, dummyPlayer, hand).getType();
-
-		return result;
-	}
-
-	private void updateBlockModels(World world) {
-		BlockPos center = currentHologram.pos;
-
-		getPositionsAround(center).forEach(pos -> {
-			IBlockState current = world.getBlockState(pos).getActualState(world, pos);
-			IBlockState dummy = dummyWorld.getBlockState(pos).getActualState(dummyWorld, pos);
-
-			if (current != dummy) {
-				IBakedModel model = mc.getBlockRendererDispatcher().getModelForState(dummy);
-				TileEntity entity = dummyWorld.getTileEntity(pos);
-				dummy = dummyWorld.getBlockState(pos).getBlock().getExtendedState(dummy, world, pos);
-
-				currentHologram.parts.add(new Part(dummyWorld, pos, dummy, model,
-						dummy.getBlock() instanceof BlockContainer ? entity : null));
-			}
-		});
-	}
-
-	public Stream<BlockPos> getPositionsAround(BlockPos center) {
-		List<BlockPos> positions = new ArrayList<>();
-
-		for (int y = center.getY() - radius; y <= center.getY() + radius; y++) {
-			for (int z = center.getZ() - radius; z <= center.getZ() + radius; z++) {
-				for (int x = center.getX() - radius; x <= center.getX() + radius; x++) {
-					positions.add(new BlockPos(x, y, z));
-				}
-			}
-		}
-
-		return positions.stream();
 	}
 
 	@SubscribeEvent
