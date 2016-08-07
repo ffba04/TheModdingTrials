@@ -31,7 +31,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.client.event.DrawBlockHighlightEvent;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.world.WorldEvent;
+import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -62,21 +62,17 @@ public class BlockHologram {
 	}
 
 	@SubscribeEvent
-	public void worldLoad(WorldEvent.Load e) {
-		dummyWorld = new DummyWorld(e.getWorld(), 4);
-	}
-
-	@SubscribeEvent
-	public void worldUnload(WorldEvent.Unload e) {
-		dummyWorld = null;
-		currentHologram = null;
+	public void entityJoin(EntityJoinWorldEvent e) {
+		if (e.getEntity() == this.mc.thePlayer) {
+			dummyWorld = new DummyWorld(e.getWorld(), 4);
+		}
 	}
 
 	@SubscribeEvent
 	public void clientTick(TickEvent.ClientTickEvent e) {
 		RayTraceResult rayTrace = this.mc.objectMouseOver;
 
-		if (rayTrace == null || rayTrace.typeOfHit != RayTraceResult.Type.BLOCK) {
+		if (mc.theWorld == null || mc.thePlayer == null || rayTrace == null || rayTrace.typeOfHit != RayTraceResult.Type.BLOCK) {
 			currentHologram = null;
 			return;
 		}
