@@ -76,17 +76,14 @@ public class Hologram {
 		}
 
 		public void renderPart(float partialTicks) {
+			GlStateManager.scale(1.008F, 1.024F, 1.008F);
+			GlStateManager.translate(-0.004F, -0.004F, -0.004F);
+			
 			if (state.getRenderType() == EnumBlockRenderType.MODEL) {
-				GlStateManager.scale(1.004F, 1.012F, 1.004F);
-				GlStateManager.translate(-0.002F, -0.002F, -0.002F);
 				RenderUtil.renderGhostModel(state, model, world, 0xAA000000, true);
 			}
 
 			if (entity != null) {
-				if (state.getRenderType() != EnumBlockRenderType.MODEL) {
-					GlStateManager.scale(1.004F, 1.012F, 1.004F);
-					GlStateManager.translate(-0.002F, -0.002F, -0.002F);
-				}
 				TileEntityRendererDispatcher.instance.renderTileEntityAt(entity, 0, 0, 0, partialTicks);
 			}
 		}

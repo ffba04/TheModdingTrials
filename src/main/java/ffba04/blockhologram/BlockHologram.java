@@ -18,6 +18,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BlockRendererDispatcher;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
@@ -26,6 +27,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumBlockRenderType;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
@@ -54,14 +56,14 @@ public class BlockHologram {
 	private DummyPlayer dummyPlayer = null;
 
 	private Hologram currentHologram = null;
-	private int radius = 2;
-	
+	private int radius = 5;
+
 	private List<Block> exclusions = new ArrayList<>();
 
 	@Mod.EventHandler
 	public void preInit(FMLPreInitializationEvent e) {
 		MinecraftForge.EVENT_BUS.register(this);
-		
+
 		exclusions.add(Blocks.PORTAL);
 		exclusions.add(Blocks.END_PORTAL);
 		exclusions.add(Blocks.END_GATEWAY);
@@ -77,6 +79,7 @@ public class BlockHologram {
 	public void worldUnload(WorldEvent.Unload e) {
 		dummyWorld = null;
 		dummyPlayer = null;
+		currentHologram = null;
 	}
 
 	@SubscribeEvent
@@ -179,7 +182,8 @@ public class BlockHologram {
 				TileEntity entity = dummyWorld.getTileEntity(pos);
 				dummy = dummyWorld.getBlockState(pos).getBlock().getExtendedState(dummy, world, pos);
 
-				currentHologram.parts.add(new Part(dummyWorld, pos, dummy, model, dummy.getBlock() instanceof BlockContainer ? entity : null));
+				currentHologram.parts.add(new Part(dummyWorld, pos, dummy, model,
+						dummy.getBlock() instanceof BlockContainer ? entity : null));
 			}
 		});
 	}
@@ -209,7 +213,7 @@ public class BlockHologram {
 
 			for (Part part : currentHologram.parts) {
 				BlockPos pos = part.pos;
-				
+
 				GlStateManager.pushMatrix();
 				GlStateManager.translate(-offsetX, -offsetY, -offsetZ);
 				GlStateManager.translate(pos.getX(), pos.getY(), pos.getZ());
@@ -220,7 +224,7 @@ public class BlockHologram {
 			}
 		}
 	}
-	
+
 	@SubscribeEvent
 	public void renderBlockHighlight(DrawBlockHighlightEvent e) {
 		Minecraft mc = Minecraft.getMinecraft();
@@ -236,11 +240,12 @@ public class BlockHologram {
 		World world = mc.theWorld;
 		IBlockState state = world.getBlockState(pos).getActualState(world, pos);
 		Block block = state.getBlock();
+		TileEntity entity = world.getTileEntity(pos);
 
 		if (exclusions.contains(block)) {
 			return;
 		}
-		
+
 		if (block == Blocks.REDSTONE_WIRE || block == Blocks.WATERLILY) {
 			state = Blocks.REDSTONE_WIRE.getDefaultState();
 		}
@@ -254,16 +259,22 @@ public class BlockHologram {
 		GlStateManager.pushMatrix();
 		GlStateManager.translate(-dX, -dY, -dZ);
 		GlStateManager.translate(pos.getX(), pos.getY(), pos.getZ());
-
-		BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();
-		IBakedModel model = dispatcher.getBlockModelShapes().getModelForState(state);
-
 		GlStateManager.scale(1.004F, 1.012F, 1.004F);
 		GlStateManager.translate(-0.002F, -0.002F, -0.002F);
 		GlStateManager.disableTexture2D();
-		RenderUtil.renderGhostModel(state, model, world, 0x55000000, false);
-		GlStateManager.enableTexture2D();
 
+		if (state.getRenderType() == EnumBlockRenderType.MODEL) {
+			BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();
+			IBakedModel model = dispatcher.getBlockModelShapes().getModelForState(state);
+
+			RenderUtil.renderGhostModel(state, model, world, 0x55000000, false);
+		}
+		
+		if (entity != null) {
+			TileEntityRendererDispatcher.instance.renderTileEntityAt(entity, 0, 0, 0, partialTicks);
+		}
+
+		GlStateManager.enableTexture2D();
 		GlStateManager.popMatrix();
 	}
 
