@@ -13,6 +13,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSetMultimap;
 
+import ffba04.blockhologram.BlockHologram;
 import ffba04.blockhologram.Hologram;
 import ffba04.blockhologram.Hologram.Part;
 import net.minecraft.block.Block;
@@ -94,6 +95,10 @@ public class DummyWorld extends World {
 	public EnumActionResult useBlockItem(EntityPlayer player, EnumHand hand, Hologram hologram) {
 		ItemStack stack = player.getHeldItem(hand).copy();
 		Item item = stack.getItem();
+		
+		if (!BlockHologram.enableHologram || BlockHologram.HOLOGRAM_EXLUSIONS.contains(item)) {
+			return EnumActionResult.FAIL;
+		}
 
 		dummyPlayer.setLocationAndAngles(player.posX, player.posY, player.posZ, player.rotationYaw,
 				player.rotationPitch);
