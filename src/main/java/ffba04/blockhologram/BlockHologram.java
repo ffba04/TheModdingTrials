@@ -51,7 +51,7 @@ public class BlockHologram {
 
 	public static final String ID = "blockhologram";
 	public static final String NAME = "Block Hologram";
-	public static final String VERSION = "v1.0";
+	public static final String VERSION = "v1.1";
 	public static final Logger LOGGER = LogManager.getLogger(NAME);
 
 	public static final List<Item> HOLOGRAM_EXLUSIONS = new ArrayList<>();
